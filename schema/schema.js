@@ -8,7 +8,8 @@ const {
     GraphQLSchema,
     GraphQLID,
     GraphQLInt,
-    GraphQLList} = graphql
+    GraphQLList,
+    GraphQLNonNull} = graphql
 //mencari id dari suatu data di dalam databse bisa menggunakan GraphQLID / GraphQLString (dan bisa juga dendgan GraphqlInt jika di db type dari id int), kalau menggunakan GraphQLID kita bisa memasukkan string atau int sebagai parameter untuk mencari data. (pada dasarnya yang digunakan tetaplah string, hanya saja yang merubahnya adalah Graphql)
 //  authorId digunakan untuk menghubungkan books dengan author(semacam foreign key)
 // var books = [
@@ -42,6 +43,7 @@ const BookType = new GraphQLObjectType({
             resolve(parent, args){
                 // _.find hanya akan return yang pertama kali ketemu(match)
                 // return _.find(authors, {id : parent.authorId})
+                return Author.findById(parent.authorId)
             }
         }
     })
@@ -53,12 +55,13 @@ const AuthorType = new GraphQLObjectType({
         id: { type: GraphQLID },
         name: { type: GraphQLString },
         age: { type: GraphQLInt },
-        book: {
+        books: {
             // type bukan BookType, karena seorang author mungkin punya lebih dari satu buku
             type: new GraphQLList(BookType),
             resolve(parent, args){
                 // akan return semua yang match
                 // return _.filter(books, {authorId: parent.id})
+                return Book.find({authorId: parent.id})
             }
         }
     })
@@ -74,6 +77,7 @@ const RootQuery = new GraphQLObjectType({
                 // code to get data from db / other source
                 // menggunakan lodash
                 // return _.find(books, { id: args.id})
+                return Book.findById(args.id)
             }
         },
         author: {
@@ -81,6 +85,7 @@ const RootQuery = new GraphQLObjectType({
             args: {id: {type: GraphQLID}},
             resolve(parent, args){
                 // return _.find(authors, {id: args.id})
+                return Author.findById(args.id)
             }
         },
         // to get all the books
@@ -88,12 +93,14 @@ const RootQuery = new GraphQLObjectType({
             type: new GraphQLList(BookType),
             resolve(parent, args){
                 // return books
+                return Book.find({})
             }
         },
         authors: {
             type: new GraphQLList(AuthorType),
             resolve(parent, args){
                 // return authors
+                return Author.find({})
             }
         }
     }
@@ -105,15 +112,32 @@ const Mutation = new GraphQLObjectType({
         addAuthor: {
             type: AuthorType,
             args:{
-                name: {type: GraphQLString},
-                age: {type: GraphQLInt}
+                name: {type: new GraphQLNonNull(GraphQLString)},
+                age: {type: new GraphQLNonNull(GraphQLInt)}
             },
             resolve(parent, args){
                 let author = new Author({
                     name: args.name,
                     age: args.age
                 })
+                // di return biar bisa melihat apa yang kita isi
                 return author.save()
+            }
+        },
+        addBook: {
+            type: BookType,
+            args: {
+                name: {type: new GraphQLNonNull(GraphQLString)},
+                genre: {type: new GraphQLNonNull(GraphQLString)},
+                authorId : {type: new GraphQLNonNull(GraphQLID)}
+            },
+            resolve(parent, args){
+                let book = new Book({
+                    name: args.name,
+                    genre: args.genre,
+                    authorId: args.authorId
+                })
+                return book.save()
             }
         }
     }
